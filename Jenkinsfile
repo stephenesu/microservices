@@ -95,13 +95,13 @@ pipeline {
                         usernameVariable: 'DOCKER_USER',
                         passwordVariable: 'DOCKER_PASS'
                     )]) {
-                        sh """
+                        sh '''
                             mvn jib:build \
                                 -Djib.to.auth.username=${DOCKER_USER} \
                                 -Djib.to.auth.password=${DOCKER_PASS} \
-                                -Djib.to.tags=${IMAGE_TAG},latest \
+                                -Djib.to.tags=${BUILD_NUMBER},latest \
                                 -B
-                        """
+                        '''
                     }
                 }
             }
@@ -115,6 +115,9 @@ pipeline {
                         --exit-code 0 \
                         --severity HIGH,CRITICAL \
                         --format table \
+                        --timeout 10m \
+                        --db-repository mirror.gcr.io/aquasec/trivy-db \
+                        --scanners vuln \
                         ${IMAGE_NAME}:${IMAGE_TAG}
                 """
             }
