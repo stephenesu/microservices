@@ -111,7 +111,7 @@ pipeline {
             steps {
                 echo '========== Stage 8: Trivy Security Scan =========='
                 sh """
-                    trivy image \
+                    /var/jenkins_home/bin/trivy image \
                         --exit-code 0 \
                         --severity HIGH,CRITICAL \
                         --format table \
