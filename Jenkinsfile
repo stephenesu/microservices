@@ -86,9 +86,26 @@ pipeline {
             }
         }
 
+        stage('Trivy Filesystem Scan') {
+            steps {
+                echo '========== Stage 7: Trivy Filesystem Scan =========='
+                dir("${SERVICE_DIR}") {
+                    sh """
+                        /var/jenkins_home/bin/trivy fs \
+                            --exit-code 0 \
+                            --severity HIGH,CRITICAL \
+                            --format table \
+                            --timeout 10m \
+                            --scanners vuln \
+                            ./target
+                    """
+                }
+            }
+        }
+
         stage('Build & Push Image with Jib') {
             steps {
-                echo '========== Stage 7: Build & Push Docker Image with Jib =========='
+                echo '========== Stage 8: Build & Push Docker Image with Jib =========='
                 dir("${SERVICE_DIR}") {
                     withCredentials([usernamePassword(
                         credentialsId: 'dockerhub-credentials',
@@ -104,22 +121,6 @@ pipeline {
                         '''
                     }
                 }
-            }
-        }
-
-        stage('Trivy Image Scan') {
-            steps {
-                echo '========== Stage 8: Trivy Security Scan =========='
-                sh """
-                    /var/jenkins_home/bin/trivy image \
-                        --exit-code 0 \
-                        --severity HIGH,CRITICAL \
-                        --format table \
-                        --timeout 10m \
-                        --db-repository mirror.gcr.io/aquasec/trivy-db \
-                        --scanners vuln \
-                        ${IMAGE_NAME}:${IMAGE_TAG}
-                """
             }
         }
 
