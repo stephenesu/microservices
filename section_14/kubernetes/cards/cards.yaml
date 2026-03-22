@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cards
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cards
+  template:
+    metadata:
+      labels:
+        app: cards
+    spec:
+      containers:
+      - name: cards
+        image: stephenesu/cards:latest
+        ports:
+        - containerPort: 9000
+        env:
+        - name: SPRING_APPLICATION_NAME
+          value: "cards"
+        - name: SPRING_CONFIG_IMPORT
+          value: "configserver:http://configserver:8071/"
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: "http://eurekaserver:8070/eureka/"
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 9000
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          failureThreshold: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 9000
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          failureThreshold: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cards
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: cards
+  ports:
+  - port: 9000
+    targetPort: 9000

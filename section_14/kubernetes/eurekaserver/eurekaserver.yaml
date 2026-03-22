@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eurekaserver
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eurekaserver
+  template:
+    metadata:
+      labels:
+        app: eurekaserver
+    spec:
+      containers:
+      - name: eurekaserver
+        image: stephenesu/eurekaserver:latest
+        ports:
+        - containerPort: 8070
+        env:
+        - name: SPRING_APPLICATION_NAME
+          value: "eurekaserver"
+        - name: SPRING_CONFIG_IMPORT
+          value: "configserver:http://configserver:8071/"
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8070
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          failureThreshold: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8070
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          failureThreshold: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eurekaserver
+  namespace: default
+spec:
+  selector:
+    app: eurekaserver
+  ports:
+  - port: 8070
+    targetPort: 8070

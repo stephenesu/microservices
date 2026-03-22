@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loans
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loans
+  template:
+    metadata:
+      labels:
+        app: loans
+    spec:
+      containers:
+      - name: loans
+        image: stephenesu/loans:latest
+        ports:
+        - containerPort: 8090
+        env:
+        - name: SPRING_APPLICATION_NAME
+          value: "loans"
+        - name: SPRING_CONFIG_IMPORT
+          value: "configserver:http://configserver:8071/"
+        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+          value: "http://eurekaserver:8070/eureka/"
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8090
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          failureThreshold: 10
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8090
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          failureThreshold: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loans
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: loans
+  ports:
+  - port: 8090
+    targetPort: 8090
