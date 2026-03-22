@@ -188,7 +188,7 @@
                 <version>3.5.1</version>
                 <configuration>
                     <to>
-                        <image>eazybytes/${project.artifactId}:s14</image>
+                        <image>stephenesu/${project.artifactId}:${env.BUILD_NUMBER}</image>
                     </to>
                 </configuration>
             </plugin>
