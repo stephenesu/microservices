@@ -4,7 +4,8 @@ pipeline {
     environment {
         DOCKER_HUB_USERNAME = 'stephenesu'
         SONAR_PROJECT_KEY = 'eazybank'
-        K8S_DIR = 'section_14/kubernetes'
+        K8S_NAMESPACE = 'eazybank'
+        TRIVY_CACHE = '/var/jenkins_home/trivy-cache'
     }
 
     tools {
@@ -24,60 +25,32 @@ pipeline {
         stage('Build All Services') {
             parallel {
                 stage('Build Accounts') {
-                    steps {
-                        dir('section_14/accounts') {
-                            sh 'mvn clean package -DskipTests -B'
-                        }
-                    }
+                    steps { dir('section_14/accounts') { sh 'mvn clean package -DskipTests -B' } }
                 }
                 stage('Build Loans') {
-                    steps {
-                        dir('section_14/loans') {
-                            sh 'mvn clean package -DskipTests -B'
-                        }
-                    }
+                    steps { dir('section_14/loans') { sh 'mvn clean package -DskipTests -B' } }
                 }
                 stage('Build Cards') {
-                    steps {
-                        dir('section_14/cards') {
-                            sh 'mvn clean package -DskipTests -B'
-                        }
-                    }
+                    steps { dir('section_14/cards') { sh 'mvn clean package -DskipTests -B' } }
                 }
                 stage('Build Message') {
-                    steps {
-                        dir('section_14/message') {
-                            sh 'mvn clean package -DskipTests -B'
-                        }
-                    }
+                    steps { dir('section_14/message') { sh 'mvn clean package -DskipTests -B' } }
                 }
                 stage('Build ConfigServer') {
-                    steps {
-                        dir('section_14/configserver') {
-                            sh 'mvn clean package -DskipTests -B'
-                        }
-                    }
+                    steps { dir('section_14/configserver') { sh 'mvn clean package -DskipTests -B' } }
                 }
                 stage('Build EurekaServer') {
-                    steps {
-                        dir('section_14/eurekaserver') {
-                            sh 'mvn clean package -DskipTests -B'
-                        }
-                    }
+                    steps { dir('section_14/eurekaserver') { sh 'mvn clean package -DskipTests -B' } }
                 }
                 stage('Build GatewayServer') {
-                    steps {
-                        dir('section_14/gatewayserver') {
-                            sh 'mvn clean package -DskipTests -B'
-                        }
-                    }
+                    steps { dir('section_14/gatewayserver') { sh 'mvn clean package -DskipTests -B' } }
                 }
             }
         }
 
         stage('Unit Tests') {
             steps {
-                echo '========== Stage 3: Unit Tests - Accounts =========='
+                echo '========== Stage 3: Unit Tests =========='
                 dir('section_14/accounts') {
                     sh 'mvn test -B'
                 }
@@ -85,10 +58,7 @@ pipeline {
             post {
                 always {
                     dir('section_14/accounts') {
-                        junit(
-                            allowEmptyResults: true,
-                            testResults: '**/target/surefire-reports/*.xml'
-                        )
+                        junit(allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml')
                     }
                 }
             }
@@ -119,21 +89,51 @@ pipeline {
                 stage('Scan Accounts') {
                     steps {
                         dir('section_14/accounts') {
-                            sh '/var/jenkins_home/bin/trivy fs --exit-code 0 --severity HIGH,CRITICAL --format table --timeout 10m --scanners vuln ./target'
+                            sh """
+                                /var/jenkins_home/bin/trivy fs \
+                                    --exit-code 0 \
+                                    --severity HIGH,CRITICAL \
+                                    --format table \
+                                    --timeout 10m \
+                                    --scanners vuln \
+                                    --cache-dir ${TRIVY_CACHE} \
+                                    --skip-db-update \
+                                    ./target
+                            """
                         }
                     }
                 }
                 stage('Scan Loans') {
                     steps {
                         dir('section_14/loans') {
-                            sh '/var/jenkins_home/bin/trivy fs --exit-code 0 --severity HIGH,CRITICAL --format table --timeout 10m --scanners vuln ./target'
+                            sh """
+                                /var/jenkins_home/bin/trivy fs \
+                                    --exit-code 0 \
+                                    --severity HIGH,CRITICAL \
+                                    --format table \
+                                    --timeout 10m \
+                                    --scanners vuln \
+                                    --cache-dir ${TRIVY_CACHE} \
+                                    --skip-db-update \
+                                    ./target
+                            """
                         }
                     }
                 }
                 stage('Scan Cards') {
                     steps {
                         dir('section_14/cards') {
-                            sh '/var/jenkins_home/bin/trivy fs --exit-code 0 --severity HIGH,CRITICAL --format table --timeout 10m --scanners vuln ./target'
+                            sh """
+                                /var/jenkins_home/bin/trivy fs \
+                                    --exit-code 0 \
+                                    --severity HIGH,CRITICAL \
+                                    --format table \
+                                    --timeout 10m \
+                                    --scanners vuln \
+                                    --cache-dir ${TRIVY_CACHE} \
+                                    --skip-db-update \
+                                    ./target
+                            """
                         }
                     }
                 }
@@ -173,15 +173,22 @@ pipeline {
                 )]) {
                     sh '''
                         export PATH=$PATH:/var/jenkins_home/bin
-                        kubectl apply -f section_14/kubernetes/kafka/
-                        kubectl apply -f section_14/kubernetes/configserver/
-                        kubectl apply -f section_14/kubernetes/eurekaserver/
-                        kubectl apply -f section_14/kubernetes/accounts/
-                        kubectl apply -f section_14/kubernetes/loans/
-                        kubectl apply -f section_14/kubernetes/cards/
-                        kubectl apply -f section_14/kubernetes/message/
-                        kubectl apply -f section_14/kubernetes/gatewayserver/
-                        kubectl rollout status deployment/accounts --timeout=300s
+
+                        # Create namespace if it doesn't exist
+                        kubectl get namespace eazybank || kubectl create namespace eazybank
+
+                        # Deploy in order
+                        kubectl apply -f section_14/kubernetes/kafka/ -n eazybank
+                        kubectl apply -f section_14/kubernetes/configserver/ -n eazybank
+                        kubectl apply -f section_14/kubernetes/eurekaserver/ -n eazybank
+                        kubectl apply -f section_14/kubernetes/accounts/ -n eazybank
+                        kubectl apply -f section_14/kubernetes/loans/ -n eazybank
+                        kubectl apply -f section_14/kubernetes/cards/ -n eazybank
+                        kubectl apply -f section_14/kubernetes/message/ -n eazybank
+                        kubectl apply -f section_14/kubernetes/gatewayserver/ -n eazybank
+
+                        # Wait for accounts to be ready
+                        kubectl rollout status deployment/accounts -n eazybank --timeout=300s
                     '''
                 }
             }
@@ -193,6 +200,7 @@ pipeline {
         success {
             echo '========================================='
             echo 'Pipeline SUCCEEDED! All services deployed.'
+            echo "Namespace: eazybank"
             echo '========================================='
         }
         failure {
